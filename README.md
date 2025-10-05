@@ -138,8 +138,9 @@ Set these environment variables in your production environment:
 #### Render.com
 1. Connect your GitHub repository
 2. Set build command: `pip install -r requirements.txt`
-3. Set start command: `gunicorn app:app`
+3. Set start command: `gunicorn app:app --bind 0.0.0.0:$PORT`
 4. Add environment variable: `GEMINI_API_KEY`
+5. Set Python version: `3.13.4`
 
 #### Heroku
 1. Create a Heroku app

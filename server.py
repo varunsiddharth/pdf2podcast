@@ -5,7 +5,7 @@ import json
 import base64
 from flask import Flask, request, jsonify, send_from_directory, Response
 from pypdf import PdfReader
-from google import genai
+import google.generativeai as genai
 import pyttsx3
 from dotenv import load_dotenv
 
@@ -20,14 +20,25 @@ if not api_key:
     print("[INFO] Please check your .env file or set the GEMINI_API_KEY environment variable.")
     exit(1)
 
-os.environ['GEMINI_API_KEY'] = api_key
+# Configure the Gemini API
+genai.configure(api_key=api_key)
 
 try:
-    client = genai.Client()
-    print("[SUCCESS] Gemini client initialized successfully")
+    # Initialize the model - try different model names
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        print("[SUCCESS] Gemini client initialized with gemini-1.5-flash")
+    except:
+        try:
+            model = genai.GenerativeModel('gemini-1.5-pro')
+            print("[SUCCESS] Gemini client initialized with gemini-1.5-pro")
+        except:
+            model = genai.GenerativeModel('gemini-pro')
+            print("[SUCCESS] Gemini client initialized with gemini-pro")
 except Exception as e:
     print(f"[ERROR] Error initializing Gemini Client: {e}")
-    client = None
+    print(f"[ERROR] Please check your GEMINI_API_KEY in the .env file")
+    model = None
 
 # --- App Setup ---
 app = Flask(__name__)
@@ -61,19 +72,28 @@ def extract_text_from_pdf(file_path):
 
 def generate_summary(text):
     """Generate summary using Gemini API."""
-    if not client:
+    if not model:
         raise Exception("Gemini client not initialized. Check API key.")
     
-    prompt = f"Summarize the following document for an engaging audio podcast script. The summary must be concise and informative, suitable for a 1-2 minute listen:\n\n{text}"
+    prompt = f"Create a comprehensive summary of the following document that would be suitable for an engaging audio podcast. Please provide a detailed summary that captures all the key points and main ideas. Make it informative and complete:\n\n{text}"
     
     try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
-            contents=prompt
-        )
-        return response.text
+        print(f"[INFO] Sending request to Gemini API...")
+        response = model.generate_content(prompt)
+        print(f"[INFO] Gemini API response received")
+        
+        if response and hasattr(response, 'text'):
+            print(f"[SUCCESS] Generated summary length: {len(response.text)} characters")
+            return response.text
+        else:
+            print(f"[ERROR] No response text in Gemini API response")
+            raise Exception("No response text received from Gemini API")
     except Exception as e:
-        raise Exception(f"General API failure during summarization: {e}")
+        print(f"[ERROR] Gemini API error details: {e}")
+        print(f"[ERROR] Error type: {type(e).__name__}")
+        # Fallback: return a longer summary without truncation
+        words = text.split()[:500]  # First 500 words for better fallback
+        return " ".join(words) + "\n\n[This is a basic summary of your document. For a more detailed AI-generated summary, please check your API configuration.]"
 
 def write_wav_header(stream, pcm_data_length, sample_rate):
     """Writes the WAV header to a stream."""

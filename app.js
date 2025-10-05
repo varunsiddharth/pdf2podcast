@@ -1,377 +1,255 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // ----------------------------------------------------------------------------------
-    // 1. FRONTEND ELEMENT REFERENCES
-    // ----------------------------------------------------------------------------------
-    const pdfFile = document.getElementById('pdfFile');
+// PDF to Podcast Generator - Fixed Frontend JavaScript
+
+let isProcessing = false;
+
+// Wait for DOM to load
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const pdfFileInput = document.getElementById('pdfFile');
     const chooseFileBtn = document.getElementById('chooseFileBtn');
-    const buttonText = document.getElementById('buttonText');
-    const buttonSpinner = document.getElementById('buttonSpinner');
-    const uploadLabel = document.querySelector('.upload-box'); 
     const statusMessage = document.getElementById('statusMessage');
     const resultsSection = document.getElementById('resultsSection');
-    const summaryTextarea = document.getElementById('summaryText');
+    const summaryText = document.getElementById('summaryText');
     const podcastAudio = document.getElementById('podcastAudio');
     const downloadLink = document.getElementById('downloadLink');
-    const audioPlaceholder = document.getElementById('audioPlaceholder');
-    const audioPlayerWrapper = document.getElementById('audioPlayerWrapper');
-    const progressContainer = document.getElementById('progressContainer');
-    const progressFill = document.getElementById('progressFill');
-    const progressText = document.getElementById('progressText');
-    const processingSteps = document.getElementById('processingSteps');
-    const copySummaryBtn = document.getElementById('copySummaryBtn');
-    const wordCount = document.getElementById('wordCount');
-    const charCount = document.getElementById('charCount');
-    const audioDuration = document.getElementById('audioDuration');
-    const playPauseBtn = document.getElementById('playPauseBtn');
-    const rewindBtn = document.getElementById('rewindBtn');
-    const forwardBtn = document.getElementById('forwardBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const uploadArea = document.getElementById('uploadArea');
+    const processingAnimation = document.getElementById('processingAnimation');
 
-    let selectedFile = null;
-    let isProcessing = false;
-
-    // Ensure the main button is disabled initially until a file is selected
-    if (chooseFileBtn) {
-        chooseFileBtn.disabled = true;
+    // Event Listeners
+    if (pdfFileInput) {
+        pdfFileInput.addEventListener('change', handleFileSelect);
     }
-
-
-    // ----------------------------------------------------------------------------------
-    // 2. EVENT LISTENERS
-    // ----------------------------------------------------------------------------------
-
-    // A. File Input Change Listener (when user selects a file)
-    if (pdfFile) {
-        pdfFile.addEventListener('change', (e) => {
-            selectedFile = e.target.files[0];
-            if (selectedFile) {
-                // Check if the selected file is a PDF
-                if (selectedFile.type !== 'application/pdf') {
-                    showStatus('Invalid file type. Please select a PDF file.', 'error');
-                    selectedFile = null;
-                    if (chooseFileBtn) chooseFileBtn.disabled = true;
-                    pdfFile.value = ''; // Clear the file input
-                    return;
-                }
-
-                // File is valid
-                if (uploadLabel) {
-                    uploadLabel.style.borderColor = 'var(--accent-purple)';
-                    uploadLabel.classList.add('animate-pulse');
-                }
-                
-                if (chooseFileBtn && buttonText) {
-                    buttonText.textContent = `Process PDF: ${selectedFile.name}`;
-                    chooseFileBtn.disabled = false;
-                }
-                
-                showStatus('File selected. Click "Process PDF" to begin.', 'success');
-                
-                // Update file info
-                updateFileInfo(selectedFile);
-            } else {
-                selectedFile = null;
-                if (chooseFileBtn && buttonText) {
-                    buttonText.textContent = 'Choose PDF File';
-                    chooseFileBtn.disabled = true;
-                }
-                if (statusMessage) statusMessage.textContent = '';
-                if (uploadLabel) {
-                    uploadLabel.style.borderColor = 'var(--primary-purple)';
-                    uploadLabel.classList.remove('animate-pulse');
-                }
-            }
-        });
-    }
-
-    // B. Main Process Button Click Listener
+    
     if (chooseFileBtn) {
         chooseFileBtn.addEventListener('click', () => {
-            if (selectedFile) {
-                // If a file is selected, call the main processing function
-                processFile(selectedFile);
+            if (pdfFileInput) {
+                pdfFileInput.click();
+            }
+        });
+    }
+    
+    if (copyBtn) {
+        copyBtn.addEventListener('click', copySummary);
+    }
+
+    // Enhanced drag and drop functionality
+    if (uploadArea) {
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+            uploadArea.style.transform = 'scale(1.02)';
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            uploadArea.style.transform = 'scale(1)';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            uploadArea.style.transform = 'scale(1)';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                if (pdfFileInput) {
+                    pdfFileInput.files = files;
+                }
+                processFile(files[0]);
             } else {
-                // If the button is clicked without a file, trigger the hidden file input
-                if (pdfFile) pdfFile.click(); 
+                showStatus('Please upload a valid PDF file.', 'error');
             }
         });
     }
 
-
-    // C. Drag and Drop Handlers (The code that makes the box light up)
-    if (uploadLabel) {
-        // Prevent default browser behavior for drag events
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadLabel.addEventListener(eventName, preventDefaults, false);
-        });
-
-        // Highlight the box when an item is dragged over
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadLabel.addEventListener(eventName, highlight, false);
-        });
-
-        // Remove highlight when item leaves or is dropped
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadLabel.addEventListener(eventName, unhighlight, false);
-        });
-
-        uploadLabel.addEventListener('drop', handleDrop, false);
-    }
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    function highlight() {
-        if (uploadLabel) uploadLabel.classList.add('border-4', 'border-dashed', 'border-accent-purple');
-    }
-
-    function unhighlight() {
-        if (uploadLabel) uploadLabel.classList.remove('border-4', 'border-dashed', 'border-accent-purple');
-    }
-
-    function handleDrop(e) {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-
-        if (files.length > 0) {
-            selectedFile = files[0];
-            if (selectedFile.type === 'application/pdf') {
-                // Manually update the hidden file input's file list
-                if (pdfFile) pdfFile.files = files; 
-                // Manually trigger the change listener to update the UI
-                if (pdfFile) pdfFile.dispatchEvent(new Event('change'));
-            } else {
-                if (statusMessage) statusMessage.textContent = 'Invalid file type. Please drop a PDF file.';
-                selectedFile = null;
-                if (chooseFileBtn) chooseFileBtn.disabled = true;
-            }
+    function handleFileSelect(event) {
+        console.log('File selected:', event.target.files[0]);
+        const file = event.target.files[0];
+        if (file && file.type === 'application/pdf') {
+            console.log('Processing PDF file:', file.name);
+            processFile(file);
+        } else {
+            console.log('Invalid file type:', file ? file.type : 'no file');
+            showStatus('Please select a valid PDF file.', 'error');
         }
     }
 
-
-    // ----------------------------------------------------------------------------------
-    // 3. CORE FILE PROCESSING FUNCTION (Communicates with Python Server)
-    // ----------------------------------------------------------------------------------
-
     async function processFile(file) {
         if (!file || isProcessing) return;
-        
+
+        console.log('Starting file processing...');
         isProcessing = true;
         
-        // 1. Lock the UI and show status
-        setProcessingState(true);
-        showStatus('Starting PDF processing...', 'info');
-        showProgress(0, 'Initializing...');
+        // Show processing animation
+        if (processingAnimation) {
+            processingAnimation.classList.remove('hidden');
+        }
+        showStatus('Processing your PDF...', 'info');
         
-        // Hide previous results and show audio placeholder area
-        if (resultsSection) resultsSection.style.display = 'none';
-        if (audioPlaceholder) audioPlaceholder.style.display = 'block';
-        if (audioPlayerWrapper) audioPlayerWrapper.style.display = 'none';
-
-        // 2. BACKEND API CALL 
+        // Disable upload area
+        if (uploadArea) {
+            uploadArea.style.pointerEvents = 'none';
+            uploadArea.style.opacity = '0.6';
+        }
+        
         const formData = new FormData();
-        formData.append('pdfFile', file); 
-
-        // Flask server's URL
-        const apiUrl = 'http://127.0.0.1:5000/api/process-pdf'; 
+        formData.append('pdfFile', file);
+        console.log('Sending request to server...');
 
         try {
-            // Simulate progress steps
-            updateProgressStep(1, 'active');
-            showProgress(20, 'Extracting text from PDF...');
-            await sleep(1000);
-            
-            updateProgressStep(2, 'active');
-            showProgress(50, 'AI is analyzing and summarizing...');
-            await sleep(1000);
-            
-            updateProgressStep(3, 'active');
-            showProgress(80, 'Generating audio podcast...');
-            
-            // Send the PDF file to the server
-            const response = await fetch(apiUrl, {
+            const response = await fetch('/api/process-pdf', {
                 method: 'POST',
-                body: formData, // Contains the PDF file
+                body: formData,
             });
+
+            console.log('Response status:', response.status);
             
-            // Handle server errors
             if (!response.ok) {
-                let errorDetails = `Server returned status: ${response.status}`;
-                try {
-                    const errorData = await response.json();
-                    errorDetails = errorData.error || errorDetails;
-                } catch (e) {
-                    // response was not JSON, use default error message
-                }
-                throw new Error(errorDetails);
+                const errorData = await response.json();
+                console.error('Server error:', errorData);
+                throw new Error(errorData.error || 'Server error');
             }
 
-            // Get the JSON response from the server 
             const result = await response.json();
+            console.log('Server response:', result);
             
-            // Complete progress
-            showProgress(100, 'Processing complete!');
-            updateProgressStep(3, 'completed');
-            
-            // 3. Update UI with Results
-            if (summaryTextarea) {
-                summaryTextarea.value = result.summary;
-                updateSummaryStats(result.summary);
+            // Update UI with results
+            if (summaryText) {
+                summaryText.value = result.summary;
+                // Ensure the textarea shows the full content
+                summaryText.style.height = 'auto';
+                summaryText.style.height = Math.min(summaryText.scrollHeight, 400) + 'px';
+                // Scroll to top to show the beginning of the summary
+                summaryText.scrollTop = 0;
             }
             if (podcastAudio) {
                 podcastAudio.src = result.audioUrl;
-                setupAudioControls();
             }
-            if (downloadLink) downloadLink.href = result.audioUrl;
-
-            showStatus('Success! Your PDF is now a summary and a podcast.', 'success');
+            if (downloadLink) {
+                downloadLink.href = result.audioUrl;
+            }
             
-            // Show the results section with animation
+            // Show results with animation
             if (resultsSection) {
                 resultsSection.style.display = 'block';
                 resultsSection.scrollIntoView({ behavior: 'smooth' });
             }
-            if (audioPlaceholder) audioPlaceholder.style.display = 'none';
-            if (audioPlayerWrapper) audioPlayerWrapper.style.display = 'block';
-
+            
+            showStatus('🎉 Success! Your PDF has been converted to a podcast.', 'success');
+            
+            // Add success animation
+            if (resultsSection) {
+                resultsSection.classList.add('animate-fade-in');
+            }
+            
         } catch (error) {
-            console.error('Processing failed:', error);
-            showStatus(`Error: Processing failed. Details: ${error.message}`, 'error');
-            updateProgressStep(3, 'error');
+            console.error('Error:', error);
+            showStatus(`❌ Error: ${error.message}`, 'error');
         } finally {
-            setProcessingState(false);
             isProcessing = false;
+            if (processingAnimation) {
+                processingAnimation.classList.add('hidden');
+            }
+            if (uploadArea) {
+                uploadArea.style.pointerEvents = 'auto';
+                uploadArea.style.opacity = '1';
+            }
         }
     }
 
-    // ----------------------------------------------------------------------------------
-    // 4. HELPER FUNCTIONS
-    // ----------------------------------------------------------------------------------
+    function showStatus(message, type) {
+        if (statusMessage) {
+            statusMessage.innerHTML = message;
+            statusMessage.className = `mt-6 text-center font-medium status-message ${
+                type === 'success' ? 'status-success' : 
+                type === 'error' ? 'status-error' : 
+                'text-blue-400'
+            }`;
+            
+            // Add animation based on type
+            if (type === 'success') {
+                statusMessage.style.animation = 'pulse 2s infinite';
+            } else if (type === 'error') {
+                statusMessage.style.animation = 'shake 0.5s ease-in-out';
+            }
+        }
+    }
 
-    function showStatus(message, type = 'info') {
-        if (!statusMessage) return;
+    function copySummary() {
+        if (summaryText) {
+            summaryText.select();
+            document.execCommand('copy');
+            
+            // Visual feedback
+            if (copyBtn) {
+                copyBtn.innerHTML = `
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Copied!
+                `;
+                copyBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = `
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                        Copy Summary
+                    `;
+                    copyBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    copyBtn.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-cyan-600', 'hover:from-blue-700', 'hover:to-cyan-700');
+                }, 2000);
+            }
+            
+            showStatus('📋 Summary copied to clipboard!', 'success');
+        }
+    }
+
+    // Add file size validation
+    function validateFileSize(file) {
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (file.size > maxSize) {
+            showStatus('File size too large. Please upload a file smaller than 50MB.', 'error');
+            return false;
+        }
+        return true;
+    }
+
+    // Enhanced file processing with validation
+    function processFileWithValidation(file) {
+        if (!file || isProcessing) return;
         
-        statusMessage.textContent = message;
-        statusMessage.className = `text-center mt-4 font-medium text-lg status-${type}`;
-    }
-
-    function setProcessingState(processing) {
-        if (chooseFileBtn) {
-            chooseFileBtn.disabled = processing;
-            if (processing) {
-                buttonText.textContent = 'Processing...';
-                buttonSpinner.classList.remove('hidden');
-                chooseFileBtn.classList.add('loading');
-            } else {
-                buttonText.textContent = selectedFile ? 'Process New PDF' : 'Choose PDF File';
-                buttonSpinner.classList.add('hidden');
-                chooseFileBtn.classList.remove('loading');
-            }
+        if (!validateFileSize(file)) return;
+        
+        if (file.type !== 'application/pdf') {
+            showStatus('Please upload a valid PDF file.', 'error');
+            return;
         }
         
-        if (processing) {
-            if (processingSteps) processingSteps.classList.remove('hidden');
-            if (progressContainer) progressContainer.style.display = 'block';
-        } else {
-            if (processingSteps) processingSteps.classList.add('hidden');
-            if (progressContainer) progressContainer.style.display = 'none';
-        }
+        // Continue with processing...
+        processFile(file);
     }
 
-    function showProgress(percentage, text) {
-        if (progressFill) progressFill.style.width = `${percentage}%`;
-        if (progressText) progressText.textContent = text;
-    }
-
-    function updateProgressStep(stepNumber, status) {
-        const steps = document.querySelectorAll('.step');
-        if (steps[stepNumber - 1]) {
-            steps[stepNumber - 1].classList.remove('active', 'completed', 'error');
-            steps[stepNumber - 1].classList.add(status);
-        }
-    }
-
-    function updateFileInfo(file) {
-        const fileSize = (file.size / (1024 * 1024)).toFixed(2);
-        console.log(`File: ${file.name}, Size: ${fileSize}MB`);
-    }
-
-    function updateSummaryStats(text) {
-        if (wordCount) {
-            const words = text.trim().split(/\s+/).length;
-            wordCount.textContent = `${words} words`;
-        }
-        if (charCount) {
-            charCount.textContent = `${text.length} characters`;
-        }
-    }
-
-    function setupAudioControls() {
-        if (!podcastAudio) return;
-
-        // Update duration when metadata loads
-        podcastAudio.addEventListener('loadedmetadata', () => {
-            if (audioDuration) {
-                audioDuration.textContent = formatTime(podcastAudio.duration);
-            }
+    // Animate elements on load
+    const elements = document.querySelectorAll('.animate-fade-in, .animate-fade-in-delay');
+    elements.forEach((el, index) => {
+        el.style.animationDelay = `${index * 0.1}s`;
+    });
+    
+    // Add hover effects to cards
+    const cards = document.querySelectorAll('.bg-white\\/10');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+            card.style.transform = 'translateY(-4px)';
+            card.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.2)';
         });
-
-        // Play/pause button
-        if (playPauseBtn) {
-            playPauseBtn.addEventListener('click', () => {
-                if (podcastAudio.paused) {
-                    podcastAudio.play();
-                    playPauseBtn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>';
-                } else {
-                    podcastAudio.pause();
-                    playPauseBtn.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
-                }
-            });
-        }
-
-        // Rewind button
-        if (rewindBtn) {
-            rewindBtn.addEventListener('click', () => {
-                podcastAudio.currentTime = Math.max(0, podcastAudio.currentTime - 10);
-            });
-        }
-
-        // Forward button
-        if (forwardBtn) {
-            forwardBtn.addEventListener('click', () => {
-                podcastAudio.currentTime = Math.min(podcastAudio.duration, podcastAudio.currentTime + 10);
-            });
-        }
-    }
-
-    function formatTime(seconds) {
-        if (isNaN(seconds)) return '--:--';
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    // Copy summary functionality
-    if (copySummaryBtn) {
-        copySummaryBtn.addEventListener('click', async () => {
-            if (summaryTextarea && summaryTextarea.value) {
-                try {
-                    await navigator.clipboard.writeText(summaryTextarea.value);
-                    copySummaryBtn.classList.add('copied');
-                    copySummaryBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
-                    setTimeout(() => {
-                        copySummaryBtn.classList.remove('copied');
-                        copySummaryBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>';
-                    }, 2000);
-                } catch (err) {
-                    console.error('Failed to copy text: ', err);
-                }
-            }
+        
+        card.addEventListener('mouseleave', () => {
+            card.style.transform = 'translateY(0)';
+            card.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
         });
-    }
+    });
 });

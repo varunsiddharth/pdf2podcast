@@ -3,6 +3,7 @@ Production WSGI entry point for PDF to Podcast Generator
 This file is required for deployment with gunicorn
 """
 
+import os
 from server import app
 
 if __name__ == "__main__":
