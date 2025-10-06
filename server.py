@@ -15,30 +15,30 @@ load_dotenv()
 
 # Get API key from environment variable
 api_key = os.environ.get('GEMINI_API_KEY')
+model = None
+
 if not api_key:
-    print("[ERROR] GEMINI_API_KEY not found in environment variables!")
-    print("[INFO] Please check your .env file or set the GEMINI_API_KEY environment variable.")
-    exit(1)
-
-# Configure the Gemini API
-genai.configure(api_key=api_key)
-
-try:
-    # Initialize the model - try different model names
+    print("[WARN] GEMINI_API_KEY not found in environment variables.")
+    print("[INFO] Proceeding with basic (non-AI) summary fallback. To enable AI, set GEMINI_API_KEY in a .env file.")
+else:
+    # Configure the Gemini API
+    genai.configure(api_key=api_key)
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        print("[SUCCESS] Gemini client initialized with gemini-1.5-flash")
-    except:
+        # Initialize the model - try different model names
         try:
-            model = genai.GenerativeModel('gemini-1.5-pro')
-            print("[SUCCESS] Gemini client initialized with gemini-1.5-pro")
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            print("[SUCCESS] Gemini client initialized with gemini-1.5-flash")
         except:
-            model = genai.GenerativeModel('gemini-pro')
-            print("[SUCCESS] Gemini client initialized with gemini-pro")
-except Exception as e:
-    print(f"[ERROR] Error initializing Gemini Client: {e}")
-    print(f"[ERROR] Please check your GEMINI_API_KEY in the .env file")
-    model = None
+            try:
+                model = genai.GenerativeModel('gemini-1.5-pro')
+                print("[SUCCESS] Gemini client initialized with gemini-1.5-pro")
+            except:
+                model = genai.GenerativeModel('gemini-pro')
+                print("[SUCCESS] Gemini client initialized with gemini-pro")
+    except Exception as e:
+        print(f"[ERROR] Error initializing Gemini Client: {e}")
+        print(f"[ERROR] Please check your GEMINI_API_KEY in the .env file")
+        model = None
 
 # --- App Setup ---
 app = Flask(__name__)

@@ -15,8 +15,8 @@ def main():
     print(f"[RENDER] Environment: {os.environ.get('RENDER', 'Unknown')}")
     
     try:
-        # Import and run the app
-        from app import app
+        # Import and run the app from server.py (the actual Flask app)
+        from server import app
         app.run(host='0.0.0.0', port=int(port), debug=False)
     except Exception as e:
         print(f"[ERROR] Failed to start application: {e}")

@@ -1,3 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Environments
+.env
+env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/*.wav
+uploads/*.mp3
+uploads/*.tmp
+
+# Build/Dist
+dist/
+build/
+
 # Environment variables
 .env
 
