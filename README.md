@@ -10,6 +10,10 @@ Transform any PDF document into an engaging audio podcast using AI technology.
 - 🎨 **Modern UI**: Beautiful, responsive web interface
 - 📱 **Mobile Friendly**: Works on all devices
 
+
+  <img width="1421" height="936" alt="Screenshot (143)" src="https://github.com/user-attachments/assets/5138af15-1687-4680-9a01-69f7a950cd9c" />
+
+
 ## Setup Instructions
 
 ### 1. Install Dependencies
